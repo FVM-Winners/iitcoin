@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.7;
 
-import "./PriceOracle.sol";
+import "./priceOracle.sol";
 
 contract IITStableCoin {
     string public constant name = "IIT Stablecoin";
     string public constant symbol = "IIT";
     uint256 public totalSupply;
 
-    PriceOracle priceOracle = PriceOracle(0x9E01a4Ab9dc8871d216120f11bEDdA7a6934F780);
+    PriceOracle priceOracle =
+        PriceOracle(0x4B3C2d0d9D5Fbd6B4130bEC84c273EdCa72fc2c0);
 
     mapping(address => uint256) public balanceOf;
     mapping(address => uint256) public filLocked;
@@ -20,16 +21,21 @@ contract IITStableCoin {
 
     uint256 public priceOfFIL = priceOracle.getPriceFIL();
 
-    function mint(uint wad) external payable {
-        uint256 value = msg.value / (10 ** 18);
-        require((value * priceOfFIL * 8) / 10 >= wad, "Insufficient FIL provided");
+    function mint(uint _wad) external payable {
+        uint256 value = msg.value;
+        uint256 wad = _wad * 10 ** 18;
+        require(
+            (value * priceOfFIL * 8) / 10 >= wad,
+            "Insufficient FIL provided"
+        );
         filLocked[msg.sender] += value;
         balanceOf[msg.sender] += wad;
         totalSupply += wad;
         emit Transfer(address(0), msg.sender, wad);
     }
 
-    function burn(address usr, uint wad) external {
+    function burn(address usr, uint _wad) external {
+        uint256 wad = _wad * 10 ** 18;
         require(balanceOf[usr] >= wad, "Dai/insufficient-balance");
         balanceOf[msg.sender] -= wad;
         filLocked[msg.sender] -= (wad * 5) / (4 * priceOfFIL);
@@ -39,7 +45,9 @@ contract IITStableCoin {
         } else {
             require(usr != msg.sender, "User is undercollateralised");
         }
-        (bool sent, ) = msg.sender.call{value: (wad * 5 * 10 ** 18) / (4 * priceOfFIL)}("");
+        (bool sent, ) = msg.sender.call{value: (wad * 5) / (4 * priceOfFIL)}(
+            ""
+        );
         require(sent, "Transaction failed!");
         emit Transfer(usr, address(0), wad);
     }
@@ -48,10 +56,17 @@ contract IITStableCoin {
         return transferFrom(msg.sender, dst, wad);
     }
 
-    function transferFrom(address src, address dst, uint wad) public returns (bool) {
+    function transferFrom(
+        address src,
+        address dst,
+        uint wad
+    ) public returns (bool) {
         require(balanceOf[src] >= wad, "Dai/insufficient-balance");
         if (src != msg.sender) {
-            require(allowance[src][msg.sender] >= wad, "Dai/insufficient-allowance");
+            require(
+                allowance[src][msg.sender] >= wad,
+                "Dai/insufficient-allowance"
+            );
             allowance[src][msg.sender] = allowance[src][msg.sender] - wad;
         }
         balanceOf[src] -= wad;
